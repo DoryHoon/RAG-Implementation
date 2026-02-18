@@ -1,4 +1,4 @@
-# LangChain & HuggingFace를 활용한 RAG 챗봇
+# LangChain & HuggingFace를 활용한 RAG 챗봇 문서
 
 ---
 
