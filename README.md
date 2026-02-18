@@ -63,10 +63,10 @@ RAG 파이프라인은 두 단계로 구성됩니다: 지식 베이스를 준비
               |
               v
        [벡터 저장소 (Vector Store)]  -->  인덱싱 및 저장
-
+```
 <img width="791" height="335" alt="image" src="https://github.com/user-attachments/assets/9ebc2b08-9a84-426f-ac15-697589b5958f" />
 
-
+```
 ===============================================
   쿼리 단계  (사용자 질문에 답변)
 ===============================================
@@ -91,8 +91,5 @@ RAG 파이프라인은 두 단계로 구성됩니다: 지식 베이스를 준비
         |
         v
   [최종 답변]
-
-<img width="724" height="301" alt="image" src="https://github.com/user-attachments/assets/e2205b11-d7b1-48a0-acee-8a048ec9abb9" />
-
-
 ```
+<img width="724" height="301" alt="image" src="https://github.com/user-attachments/assets/e2205b11-d7b1-48a0-acee-8a048ec9abb9" />
