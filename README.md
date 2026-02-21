@@ -1,95 +1,196 @@
-# LangChain & HuggingFace를 활용한 RAG 챗봇 문서
+# 📊 삼성전자 2025 Q4 실적발표 RAG 챗봇
+
+삼성전자 2025년 4분기 실적발표 PDF 문서를 기반으로, **완전 무료 오픈소스 모델만** 사용해 구축한 RAG(Retrieval-Augmented Generation) 챗봇입니다.
 
 ---
 
-## 1. LangChain이란?
+## 🏗️ 전체 아키텍처
 
-LangChain은 대규모 언어 모델(LLM)을 활용한 애플리케이션 개발을 단순화하기 위해 만들어진 오픈소스 프레임워크입니다. 직접 API를 호출하고 프롬프트, 검색기, 출력 파서 등을 수동으로 연결하는 대신, LangChain은 문서 로더, 텍스트 분할기, 벡터 저장소, 프롬프트 템플릿, 체인 등 표준화된 컴포넌트들을 제공하여 이를 손쉽게 조합해 엔드-투-엔드 파이프라인을 구성할 수 있게 해줍니다.
-
-LangChain의 핵심 강점은 **컴포저빌리티(composability)**입니다. 각 컴포넌트가 일관된 인터페이스를 따르기 때문에, 임베딩 모델이나 벡터 저장소, LLM을 교체하더라도 나머지 코드를 수정할 필요가 없습니다. 이러한 특성 덕분에 LangChain은 RAG 시스템, 에이전트, 챗봇 등 다양한 LLM 기반 애플리케이션을 구축하는 데 표준적으로 활용되는 프레임워크입니다.
+```
+PDF 문서 (2개)
+    ↓ PyPDFLoader
+문서 로드 (49 pages)
+    ↓ RecursiveCharacterTextSplitter
+텍스트 청크 분할 (92 chunks)
+    ↓ HuggingFaceEmbeddings (BAAI/bge-m3)
+벡터 임베딩 생성 (CUDA GPU 활용)
+    ↓ FAISS VectorStore
+벡터 저장 및 인덱싱
+    ↓ Retriever
+질문과 유사한 청크 검색
+    ↓ ChatPromptTemplate
+프롬프트 조합 (context + question)
+    ↓ HuggingFaceEndpoint (gemma-2-9b-it)
+LLM 추론
+    ↓ StrOutputParser
+최종 답변 출력
+```
 
 ---
 
-## 2. HuggingFace란?
+## 🛠️ 기술 스택
 
-HuggingFace는 머신러닝 모델을 중심으로 한 플랫폼이자 오픈소스 생태계입니다. LLM, 임베딩 모델, 이미지 모델 등 수만 개의 사전학습된 모델을 호스팅하며, 누구나 다운로드하거나 API를 통해 접근할 수 있습니다.
-
-HuggingFace는 크게 두 가지 역할을 담당합니다:
-- **임베딩:** 문장 변환(sentence-transformer) 모델이 텍스트를 의미 기반 검색을 위한 수치 벡터로 변환합니다.
-- **LLM 추론:** 모델을 HuggingFace Inference Endpoints를 통해 서빙하여, 로컬 GPU 없이도 강력한 오픈소스 LLM을 사용할 수 있습니다.
+| 구성 요소 | 사용 기술 | 비용 |
+|-----------|-----------|------|
+| **문서 로더** | `PyPDFLoader` (langchain-community) | 무료 |
+| **텍스트 분할** | `RecursiveCharacterTextSplitter` | 무료 |
+| **임베딩 모델** | `BAAI/bge-m3` (HuggingFace) | 무료 |
+| **벡터 DB** | `FAISS` (Facebook AI) | 무료 |
+| **LLM** | `google/gemma-2-9b-it` (HuggingFace Inference API) | 무료 |
+| **프레임워크** | `LangChain` | 무료 |
+| **GPU 가속** | NVIDIA CUDA (RTX 5060 Ti) | - |
 
 ---
 
-## 3. RAG 챗봇이란?
+## 📂 입력 문서
 
-### 3-1. RAG가 왜 필요한가?
+- `삼성_2025Q4_conference_eng_presentation.pdf` (15 pages)
+- `삼성_2025Q4_script_eng_AudioScript.pdf` (34 pages)
+- **총 로드 페이지 수: 49 pages**
 
-일반적인 LLM은 특정 시점까지의 고정된 데이터셋으로 학습됩니다. 이로 인해 두 가지 근본적인 문제가 발생합니다:
+---
 
-- **지식의 한계:** 학습 데이터 이후에 발생한 사건, 기사, 문서에 대해 모델은 알 수 없습니다.
-- **환각(Hallucination):** 모델이 모르는 내용을 질문받으면, 그럴듯하지만 잘못된 답변을 만들어내는 경향이 있습니다.
+## ⚙️ 코드 Flow (단계별 설명)
 
-**RAG(Retrieval-Augmented Generation, 검색 증강 생성)** 는 질문이 들어올 때마다 외부의 최신 지식 소스에서 관련 정보를 검색해 모델에게 제공함으로써 이 두 가지 문제를 해결합니다. 모델은 학습 중에 기억한 내용에만 의존하는 대신, 실제 출처 문서를 참고하여 답변하도록 지시받습니다. 그 결과 답변의 정확성, 근거, 검증 가능성이 크게 향상됩니다.
+### Step 1 — 환경 설정 및 라이브러리 import
 
-### 3-2. RAG 챗봇을 만들기 위해 LangChain과 HuggingFace가 왜 필요한가?
+```python
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
+```
 
-RAG 파이프라인을 처음부터 직접 구현하려면 여러 복잡한 단계가 필요합니다: 문서 수집 및 파싱, 텍스트 청킹, 임베딩 생성, 벡터 저장 및 검색, 프롬프트 구성, LLM 호출 등. 프레임워크 없이 이를 구현하면 방대한 양의 반복 코드와 연결 코드가 필요합니다.
+`.env` 파일에 HuggingFace API 토큰을 저장하고 `load_dotenv()`로 로드합니다.
 
-**LangChain**은 이 모든 컴포넌트를 기본으로 제공하며, 무엇보다 이들을 자유롭게 조합할 수 있습니다. 검색 → 프롬프트 → 생성으로 이어지는 전체 파이프라인을 단 몇 줄의 코드로 정의할 수 있습니다.
+---
 
-**HuggingFace**는 가장 핵심적인 두 단계, 즉 임베딩(텍스트를 검색 가능한 벡터로 변환)과 생성(최종 답변 생성)을 담당하는 모델을 제공합니다. HuggingFace가 API를 통해 오픈소스 모델을 호스팅하기 때문에, Gemma와 같은 고성능 모델을 별도의 추론 인프라 없이도 사용할 수 있습니다.
+### Step 2 — PDF 문서 로드
 
-정리하면, LangChain이 **오케스트레이션(파이프라인 구성)** 을 담당하고, HuggingFace가 **모델 백본** 을 제공합니다.
+```python
+loader = PyPDFLoader(path)
+docs.extend(loader.load())
+# 총 49페이지 로드
+```
 
-### 3-3. RAG 챗봇의 전체 구조 및 흐름
+프레젠테이션 자료와 어닝스콜 오디오 스크립트, 두 개의 PDF를 함께 로드해 더 풍부한 컨텍스트를 확보합니다.
 
-RAG 파이프라인은 두 단계로 구성됩니다: 지식 베이스를 준비하는 **인덱싱 단계** (최초 1회 실행)와 사용자 질문에 답하는 **쿼리 단계** (매 질문마다 실행)입니다.
+---
+
+### Step 3 — 텍스트 분할 (Chunking)
+
+```python
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000,   # 청크 당 최대 1000자
+    chunk_overlap=50   # 문맥 유지를 위해 50자 오버랩
+)
+splits = text_splitter.split_documents(docs)
+# 결과: 92개 청크
+```
+
+`chunk_overlap=50`으로 청크 경계에서 문맥이 잘리는 것을 방지합니다.
+
+---
+
+### Step 4 — 벡터 임베딩 및 FAISS 인덱싱
+
+```python
+embeddings = HuggingFaceEmbeddings(
+    model_name="BAAI/bge-m3",
+    model_kwargs={'device': 'cuda'}  # GPU 가속
+)
+
+vectorstore = FAISS.from_documents(documents=splits, embedding=embeddings)
+retriever = vectorstore.as_retriever()
+```
+
+- **임베딩 모델**: `BAAI/bge-m3` — 로컬 다운로드 후 GPU에서 실행, API 비용 없음
+- **벡터 DB**: FAISS — 인메모리 저장, 빠른 유사도 검색
+
+---
+
+### Step 5 — LLM 연결
+
+```python
+llm_endpoint = HuggingFaceEndpoint(
+    repo_id="google/gemma-2-9b-it",
+    max_new_tokens=1024,
+    temperature=0.1,
+    huggingfacehub_api_token=hf_token,
+)
+chat_llm = ChatHuggingFace(llm=llm_endpoint)
+```
+
+HuggingFace Inference API의 **무료 티어**를 활용합니다. `gemma-2-9b-it`은 사전에 [HuggingFace 모델 페이지](https://huggingface.co/google/gemma-2-9b-it)에서 라이선스 동의가 필요합니다.
+
+프롬프트는 삼성전자 실적발표 전문가 페르소나로 설정해 수치 기반의 정확한 답변을 유도합니다:
 
 ```
-===============================================
-  인덱싱 단계  (지식 베이스 준비)
-===============================================
-
-  [소스 문서 / 웹 페이지]
-              |
-              v
-      [문서 로더 (Document Loader)]
-              |
-              v
-      [텍스트 분할기 (Text Splitter)]  -->  텍스트 청크
-              |
-              v
-    [임베딩 모델 (Embedding Model)]  -->  벡터 표현
-              |
-              v
-       [벡터 저장소 (Vector Store)]  -->  인덱싱 및 저장
+당신은 삼성전자 실적발표 전문 AI 어시스턴트입니다.
+제공된 자료를 바탕으로 수치를 정확히 포함하여 상세히 답변하세요.
 ```
-<img width="791" height="335" alt="image" src="https://github.com/user-attachments/assets/9ebc2b08-9a84-426f-ac15-697589b5958f" />
 
-```
-===============================================
-  쿼리 단계  (사용자 질문에 답변)
-===============================================
+---
 
-  [사용자 질문]
-        |
-        +------------------------------+
-        v                              v
-  [임베딩 모델]                  (원본 질문 유지)
-        |
-        v
-  [벡터 저장소]  -->  상위 k개의 관련 청크 검색
-        |
-        v
-  [프롬프트 템플릿]
-    "아래 문맥만을 사용하여 질문에 답하세요.
-     문맥: {검색된 청크}
-     질문: {사용자 질문}"
-        |
-        v
-       [LLM]
-        |
-        v
-  [최종 답변]
+### Step 6 — RAG 체인 구성
+
+```python
+rag_chain = (
+    {"context": retriever, "question": RunnablePassthrough()}
+    | prompt
+    | chat_llm
+    | StrOutputParser()
+)
 ```
-<img width="724" height="301" alt="image" src="https://github.com/user-attachments/assets/e2205b11-d7b1-48a0-acee-8a048ec9abb9" />
+
+LangChain의 LCEL(LangChain Expression Language) 파이프라인으로 Retriever → Prompt → LLM → Parser를 한 줄로 연결합니다.
+
+---
+
+### Step 7 — 질의응답 실행
+
+```python
+response = rag_chain.invoke("2025 4Q highlights에 대해 최대한 상세하게 알려줘")
+```
+
+---
+
+## 💬 테스트 질문 및 답변 예시
+
+**Q: 2025 4Q highlights에 대해 최대한 상세하게 알려줘**
+> 매출 93.8조 KRW, 영업이익 20.1조 KRW, 연간 매출 333.6조 KRW, 영업이익 43.6조 KRW 등 주요 재무 지표를 상세히 답변
+
+**Q: HBM4 개발 현황이랑 2026년 HBM 매출 전망 알려줘**
+> HBM4 최종 자격 검증 단계 진입, 11.7 Gbps 최고 성능 Bin 대량 생산 중, 2026년 HBM 매출 전년 대비 3배 이상 증가 전망
+
+**Q: 2025년 4분기에 DS사업부는 좋아졌는데 DX사업부는 왜 나빠졌어?**
+> 신규 스마트폰 출시 효과 소멸 및 미국 관세로 인한 가전제품 부진으로 DX 매출 8% QoQ 감소 설명
+
+---
+
+## 📦 설치 방법
+
+```bash
+pip install langchain langchain-community langchain-huggingface
+pip install faiss-gpu  # GPU 버전 (CPU: faiss-cpu)
+pip install pypdf python-dotenv
+```
+
+`.env` 파일 생성:
+```
+HUGGINGFACEHUB_API_TOKEN=your_token_here
+```
+
+> ⚠️ HuggingFace 토큰 발급 계정과 모델 라이선스 동의 계정이 **반드시 동일**해야 합니다.
+
+---
+
+## 💡 무료로 만든 핵심 포인트
+
+1. **임베딩**: `BAAI/bge-m3`를 로컬 GPU에서 실행 → OpenAI Embedding API 비용 0원
+2. **LLM**: HuggingFace Inference API 무료 티어 활용 → OpenAI GPT API 비용 0원
+3. **벡터 DB**: FAISS 인메모리 → Pinecone/Weaviate 같은 유료 벡터 DB 비용 0원
