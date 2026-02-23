@@ -15,8 +15,8 @@ LangChain의 핵심 강점은 **컴포저빌리티(composability)** 입니다. �
 HuggingFace는 머신러닝 모델을 중심으로 한 플랫폼이자 오픈소스 생태계입니다. LLM, 임베딩 모델, 이미지 모델 등 수만 개의 사전학습된 모델을 호스팅하며, 누구나 다운로드하거나 API를 통해 접근할 수 있습니다.
 
 이 프로젝트에서 HuggingFace는 두 가지 역할을 담당합니다:
-- **임베딩:** `all-MiniLM-L6-v2` 문장 변환(sentence-transformer) 모델이 텍스트를 의미 기반 검색을 위한 수치 벡터로 변환합니다.
-- **LLM 추론:** `google/gemma-2-9b-it` 모델을 HuggingFace Inference Endpoints를 통해 서빙하여, 로컬 GPU 없이도 강력한 오픈소스 LLM을 사용할 수 있습니다.
+- **임베딩:** 예시 모델: `all-MiniLM-L6-v2` 문장 변환(sentence-transformer) 모델이 텍스트를 의미 기반 검색을 위한 수치 벡터로 변환합니다.
+- **LLM 추론:** 예시 모델: `google/gemma-2-9b-it` 모델을 HuggingFace Inference Endpoints를 통해 서빙하여, 로컬 GPU 없이도 강력한 오픈소스 LLM을 사용할 수 있습니다.
 
 ---
 
