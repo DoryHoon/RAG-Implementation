@@ -1,5 +1,0 @@
-rag_settings:
-  chunk_size: 1500
-  chunk_overlap: 200
-  model_name: "gpt-4o-mini"
-  file_path: "C:/Users/user/Downloads/삼성_2025Q4_script_eng_AudioScript.pdf"
