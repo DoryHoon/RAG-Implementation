@@ -56,7 +56,10 @@ class RAGManager:
 
     def get_chain(self):
         """질문에 답하는 최종 RAG 체인 반환"""
-        llm = ChatOpenAI(model=self.model_name, temperature=0)
+        llm = ChatOpenAI(
+            model=self.model_name, 
+            temperature=0.3
+        )
         
         # 프롬프트 구성
         template = """You are an expert AI assistant specializing in Samsung Electronics earnings reports.
